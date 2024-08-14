@@ -12,7 +12,9 @@ pipeline {
     stages {
         stage('git checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/vank1999/Ekart.git'
+                git branch: 'main',
+                credentialsId: 'git-cred',
+                url: 'https://github.com/vank1999/Ekart-java.git'
             }
         }
 
@@ -38,7 +40,9 @@ pipeline {
         stage('sonarqube analysis') {
             steps {
                 withSonarQubeEnv('sonar') {
-               sh "mvn sonar:sonar"
+               sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=EKART \
+                   -Dsonar.java.binaries=. \
+                   -Dsonar.projectKey=EKART '''
                 }
             }
         }
@@ -51,7 +55,7 @@ pipeline {
 
         stage('deploy to nexus') {
             steps {
-                withMaven(globalMavenSettingsConfig: 'global-settings-xml') {
+                withMaven(globalMavenSettingsConfig: 'global-settings') {
                 sh "mvn deploy -DskipTests=true"
             }
         }
@@ -60,7 +64,7 @@ pipeline {
         stage('build & tag docker image') {
             steps {
                 script{
-                    withDockerRegistry(credentialsId: 'docker-hub', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                      sh "docker build -t shopping-cart:dev -f docker/Dockerfile ."
                      sh "docker tag shopping-cart:dev vank1999/shopping-cart:dev"
                   }
@@ -71,7 +75,7 @@ pipeline {
         stage('push docker image') {
             steps {
                 script{
-                    withDockerRegistry(credentialsId: 'docker-hub', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                      sh "docker push vank1999/shopping-cart:dev"
                   }
                 }
@@ -81,7 +85,7 @@ pipeline {
         stage('deploy application') {
             steps {
                 script{
-                    withDockerRegistry(credentialsId: 'docker-hub', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'docker-cred', toolName: 'docker') {
                      sh "docker run -d --name ekart -p 8070:8070 vank1999/shopping-cart:dev"
                   }
                 }
